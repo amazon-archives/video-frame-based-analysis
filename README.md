@@ -1,6 +1,6 @@
 Video Frame Based Analysis
 
-To help customers process their existing image library and build collections, AWS offers Video Frame Based Analysis, a solution that combines highly available, trusted AWS Services and the open source tools FFmpeg and Open Source Computer Vision (OpenCV), for faster image processing and conversion. This solution allows customers to seamlessly analyze videos on any platform such as mobile, website and desktop, minimize costs, restrictions for integrating solutions, and the collaboration across many different teams within companies. This is a lightweight and fully managed solution, ready to deploy with image recognition tasks, allowing you to focus on high value application design and development.
+To help customers process their existing image library and build collections, AWS offers Video Frame Based Analysis, a solution that combines highly available, trusted AWS Services and the open source FFmpeg. This solution allows customers to seamlessly analyze videos on any platform such as mobile, website and desktop, minimize costs, restrictions for integrating solutions, and the collaboration across many different teams within companies. This is a lightweight, ready to deploy with image recognition tasks, allowing you to focus on high value application design and development.
 
 ## OS/Python Environment Setup
 ```bash
