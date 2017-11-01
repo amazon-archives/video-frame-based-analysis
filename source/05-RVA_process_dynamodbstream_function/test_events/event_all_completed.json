@@ -1,0 +1,83 @@
+{
+    "Records": [
+        {
+            "eventID": "eventID",
+            "eventVersion": "1.1",
+            "dynamodb": {
+                "SequenceNumber": "0000xxxx0000xxxx0000xxxx00",
+                "Keys": {
+                    "Identifier": {
+                        "S": "VideoFile.mp4"
+                    }
+                },
+                "SizeBytes": 1251,
+                "NewImage": {
+                    "Status": {
+                        "S": "PROCESSING"
+                    },
+                    "Topic": {
+                        "S": "teste123"
+                    },
+                    "Identifier": {
+                        "S": "VideoFile.mp4"
+                    },
+                    "Parts": {
+                        "M": {
+                            "images/VideoFile.mp4/6b10cbc5a05d26d83564bad7124d7cac.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/67135967f58bd8b58c3d91fc0e7bdeeb.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/fe502ed987abbe49652f17ff7bc7c14a.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/51d3ab7674d759a9ab95649f61f995c4.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/f81799616a4af1be3e66b8bb715cacea.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/99e5cb0ea2bfa167ebd05d3a50bce29b.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/07b759c4766787af65441b9b8f897508.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/55c5e4d392ec7d36dfdcb394eaeb6c92.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/0577b813d36263c71cbbf1bcec77ad24.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/7af0863eb2ce5afbd0b575a306edd919.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/9d79540df0b0c64ccf45b7f86a87be51.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/4f4e4be1a60e524844fdd38fafc45b57.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/1d00d12f8ec1d18e99846a99395fb509.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/29210b06ba5a6aeaec6208b6ce49e0dc.txt": {
+                                "S": "COMPLETED"
+                            },
+                            "images/VideoFile.mp4/051141287a8f5846cbb8f93dc454ba2c.txt": {
+                                "S": "COMPLETED"
+                            }
+                        }
+                    }
+                },
+                "ApproximateCreationDateTime": 1506725280,
+                "StreamViewType": "NEW_IMAGE"
+            },
+            "awsRegion": "eu-west-1",
+            "eventName": "MODIFY",
+            "eventSourceARN": "arn:aws:dynamodb:eu-west-1:account-id:table/RVA_PROCESS_TABLE/stream/2017-09-27T01:01:14.438",
+            "eventSource": "aws:dynamodb"
+        }
+    ]
+}

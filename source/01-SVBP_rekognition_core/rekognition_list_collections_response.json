@@ -1,0 +1,19 @@
+{
+    "ResponseMetadata": {
+        "RetryAttempts": 0,
+        "HTTPStatusCode": 200,
+        "RequestId": "991bb0a2-7e0e-11e7-a38e-ffaa52065dab",
+        "HTTPHeaders": {
+            "date": "Thu, 10 Aug 2017 20:58:02 GMT",
+            "x-amzn-requestid": "991bb0a2-7e0e-11e7-a38e-ffaa52065dab",
+            "content-length": "124",
+            "content-type": "application/x-amz-json-1.1",
+            "connection": "keep-alive"
+        }
+    },
+    "CollectionIds": [
+        "fun-at-fair-343902224.mp4",
+        "roller-coasters-350950598.mp4",
+        "siberian-people-holiday-fair-698849289.mp4"
+    ]
+}

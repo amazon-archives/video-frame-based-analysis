@@ -1,0 +1,38 @@
+{
+    "Records": [
+        {
+            "eventVersion": "2.0",
+            "eventTime": "2017-08-10T20:37:47.335Z",
+            "requestParameters": {
+                "sourceIPAddress": "10.x.x.x"
+            },
+            "s3": {
+                "configurationId": "4ed5e79a-d532-487d-b443-6cc0da2f469f",
+                "object": {
+                    "eTag": "1c73739ce603ef05c11fd050dc58e590",
+                    "sequencer": "00598CC41ADDDA2055",
+                    "key": "upload/siberian-people-holiday-fair-698849289.mp4-8.jpg",
+                    "size": 133281
+                },
+                "bucket": {
+                    "arn": "arn:aws:s3:::deep-video-rekognition-photo",
+                    "name": "deep-video-rekognition-photo",
+                    "ownerIdentity": {
+                        "principalId": "XXXX"
+                    }
+                },
+                "s3SchemaVersion": "1.0"
+            },
+            "responseElements": {
+                "x-amz-id-2": "rOLLHAcgxxNhn/30RlfSyaY6NN34wDugTxK2PLX79X/q6EAlOzw2KxGZnR1feF45smKOsn0qZsA=",
+                "x-amz-request-id": "5B86EFCCCFA58847"
+            },
+            "awsRegion": "us-west-2",
+            "eventName": "ObjectCreated:Put",
+            "userIdentity": {
+                "principalId": "AWS:xxxx"
+            },
+            "eventSource": "aws:s3"
+        }
+    ]
+}

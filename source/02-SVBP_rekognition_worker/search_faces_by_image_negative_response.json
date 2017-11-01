@@ -1,0 +1,22 @@
+{
+    "SearchedFaceBoundingBox": {
+        "Width": 0.067,
+        "Top": 0.16,
+        "Left": 0.11,
+        "Height": 0.12
+    },
+    "SearchedFaceConfidence": 99.99,
+    "FaceMatches": [],
+    "ResponseMetadata": {
+        "RetryAttempts": 0,
+        "HTTPStatusCode": 200,
+        "RequestId": "1a677b1c-80fd-11e7-a61d-31bf04106fc9",
+        "HTTPHeaders": {
+            "date": "Mon, 14 Aug 2017 14:30:23 GMT",
+            "x-amzn-requestid": "1a677b1c-80fd-11e7-a61d-31bf04106fc9",
+            "content-length": "198",
+            "content-type": "application/x-amz-json-1.1",
+            "connection": "keep-alive"
+        }
+    }
+}

@@ -1,0 +1,22 @@
+{
+    "Records": [
+        {
+            "EventVersion": "1.0",
+            "EventSubscriptionArn": "arn:aws:sns:eu-west-1:account-id:dva-topic:12345678-aaaa-bbbb-cccc-abcdefghijkl",
+            "EventSource": "aws:sns",
+            "Sns": {
+                "SignatureVersion": "1",
+                "Timestamp": "2017-09-30T18:11:59.119Z",
+                "Signature": "singature",
+                "SigningCertUrl": "https://sns.eu-west-1.amazonaws.com/SimpleNotificationService-123.pem",
+                "MessageId": "12345678-aaaa-bbbb-cccc-abcdefghijkl",
+                "Message": "{\"event\": \"VIDEO_COMPLETED\", \"video_identifier\": \"videoname.mp4\"}",
+                "MessageAttributes": {},
+                "Type": "Notification",
+                "UnsubscribeUrl": "https://sns.eu-west-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:eu-west-1:account-id:dva-topic:12345678-aaaa-bbbb-cccc-abcdefghijkl",
+                "TopicArn": "arn:aws:sns:eu-west-1:account-id:dva-topic",
+                "Subject": null
+            }
+        }
+    ]
+}

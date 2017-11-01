@@ -1,0 +1,41 @@
+{
+    "Records": [
+        {
+            "eventID": "eventID",
+            "eventVersion": "1.1",
+            "dynamodb": {
+                "SequenceNumber": "0000xxxx0000xxxx0000xxxx00",
+                "Keys": {
+                    "Identifier": {
+                        "S": "fun-at-fair-343902224.mp4"
+                    }
+                },
+                "SizeBytes": 183,
+                "NewImage": {
+                    "Status": {
+                        "S": "PROCESSING"
+                    },
+                    "Topic": {
+                        "S": "iot-topic"
+                    },
+                    "Identifier": {
+                        "S": "fun-at-fair-343902224.mp4"
+                    },
+                    "Parts": {
+                        "M": {
+                            "images/fun-at-fair-343902224.mp4/c03b6002747d84fc0b69656065da2dd2.txt": {
+                                "S": "PROCESSING"
+                            }
+                        }
+                    }
+                },
+                "ApproximateCreationDateTime": 1502112060,
+                "StreamViewType": "NEW_IMAGE"
+            },
+            "awsRegion": "us-west-2",
+            "eventName": "INSERT",
+            "eventSourceARN": "arn:aws:dynamodb:us-west-2:account-id:table/RVA_PROCESS_TABLE/stream/2017-08-03T14:17:28.805",
+            "eventSource": "aws:dynamodb"
+        }
+    ]
+}

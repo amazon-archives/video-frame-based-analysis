@@ -1,0 +1,14 @@
+{
+    "Records": [
+        {
+            "s3": {
+                "object": {
+                    "key": "images/fun-at-fair-343902224.mp4/d630ccbcf37810eb16187bd859a7e280.txt"
+                },
+                "bucket": {
+                    "name": "deep-west-video-rekognition-video"
+                }
+            }
+        }
+    ]
+}

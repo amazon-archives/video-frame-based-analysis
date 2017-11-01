@@ -1,0 +1,18 @@
+{
+    "Status": {
+        "S": "PROCESSING"
+    },
+    "Topic": {
+        "S": "iot-topic"
+    },
+    "Identifier": {
+        "S": "fun-at-fair-343902224.mp4"
+    },
+    "Parts": {
+        "M": {
+            "images/fun-at-fair-343902224.mp4/c03b6002747d84fc0b69656065da2dd2.txt": {
+                "S": "PROCESSING"
+            }
+        }
+    }
+}

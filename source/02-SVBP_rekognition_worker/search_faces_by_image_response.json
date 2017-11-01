@@ -1,0 +1,38 @@
+{
+    "SearchedFaceBoundingBox": {
+        "Width": 0.067,
+        "Top": 0.162,
+        "Left": 0.105,
+        "Height": 0.120
+    },
+    "SearchedFaceConfidence": 99.99,
+    "FaceMatches": [
+        {
+            "Face": {
+                "BoundingBox": {
+                    "Width": 0.067,
+                    "Top": 0.162,
+                    "Left": 0.105,
+                    "Height": 0.120
+                },
+                "FaceId": "d700f5d6-93b3-5251-bd07-f1e5c9e81b20",
+                "ExternalImageId": "siberian-people-holiday-fair-698849289.mp4-8.jpg",
+                "Confidence": 99.99,
+                "ImageId": "d1c16d32-e39d-5aaf-81f0-c5037f1200b0"
+            },
+            "Similarity": 99.97
+        }
+    ],
+    "ResponseMetadata": {
+        "RetryAttempts": 0,
+        "HTTPStatusCode": 200,
+        "RequestId": "1a67060a-80fd-11e7-a6c2-297a5d2f77f5",
+        "HTTPHeaders": {
+            "date": "Mon, 14 Aug 2017 14:30:22 GMT",
+            "x-amzn-requestid": "1a67060a-80fd-11e7-a6c2-297a5d2f77f5",
+            "content-length": "562",
+            "content-type": "application/x-amz-json-1.1",
+            "connection": "keep-alive"
+        }
+    }
+}

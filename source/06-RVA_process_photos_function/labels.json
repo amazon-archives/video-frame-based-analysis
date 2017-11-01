@@ -1,0 +1,33 @@
+{
+    "Labels": [
+        {
+            "Confidence": 74.410766601,
+            "Name": "Head"
+        },
+        {
+            "Confidence": 74.410766601,
+            "Name": "Portrait"
+        },
+        {
+            "Confidence": 52.1932296752,
+            "Name": "Jaw"
+        },
+        {
+            "Confidence": 52.1932296752,
+            "Name": "Neck"
+        },
+        {
+            "Confidence": 52.1932296752,
+            "Name": "Skin"
+        },
+        {
+            "Confidence": 51.9201927185,
+            "Name": "Face"
+        },
+        {
+            "Confidence": 51.9201927185,
+            "Name": "Selfie"
+        }
+    ],
+    "OrientationCorrection": "ROTATE_0"
+}

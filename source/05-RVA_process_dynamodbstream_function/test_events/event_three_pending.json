@@ -1,0 +1,56 @@
+{
+    "Records": [
+        {
+            "eventID": "eventID",
+            "eventVersion": "1.1",
+            "dynamodb": {
+                "SequenceNumber": "0000xxxx0000xxxx0000xxxx00",
+                "Keys": {
+                    "Identifier": {
+                        "S": "VideoFile.mp4"
+                    }
+                },
+                "SizeBytes": 1251,
+                "NewImage": {
+                    "Status": {
+                        "S": "PROCESSING"
+                    },
+                    "Topic": {
+                        "S": "teste123"
+                    },
+                    "Identifier": {
+                        "S": "VideoFile.mp4"
+                    },
+                    "Parts": {
+                        "M": {
+                            "images/VideoFile.mp4/6b10cbc5a05d26d83564bad7124d7cac.txt": {
+                                "S": "PROCESSING"
+                            },
+                            "images/VideoFile.mp4/1d00d12f8ec1d18e99846a99395fb509.txt": {
+                                "S": "PENDING"
+                            },
+                            "images/VideoFile.mp4/ab10cbc5a05d26d83564bad7124dacac.txt": {
+                                "S": "PROCESSING"
+                            },
+                            "images/VideoFile.mp4/bd00d12f8ec1d18e99846a99395fb509.txt": {
+                                "S": "PENDING"
+                            },
+                            "images/VideoFile.mp4/29210b06ba5a6aeaec6208b6ce49e0dc.txt": {
+                                "S": "PENDING"
+                            },
+                            "images/VideoFile.mp4/051141287a8f5846cbb8f93dc454ba2c.txt": {
+                                "S": "PENDING"
+                            }
+                        }
+                    }
+                },
+                "ApproximateCreationDateTime": 1506725280,
+                "StreamViewType": "NEW_IMAGE"
+            },
+            "awsRegion": "eu-west-1",
+            "eventName": "MODIFY",
+            "eventSourceARN": "arn:aws:dynamodb:eu-west-1:account-id:table/RVA_PROCESS_TABLE/stream/2017-09-27T01:01:14.438",
+            "eventSource": "aws:dynamodb"
+        }
+    ]
+}

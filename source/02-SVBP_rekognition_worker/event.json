@@ -1,0 +1,38 @@
+{
+    "Records": [
+        {
+            "eventVersion": "2.0",
+            "eventTime": "2017-08-14T14:30:19.635Z",
+            "requestParameters": {
+                "sourceIPAddress": "10.x.x.x"
+            },
+            "s3": {
+                "configurationId": "5ee5c798-4aae-42b4-b41e-91572435a5a7",
+                "object": {
+                    "eTag": "859f4e4bc1d5655172cdd2bf9c2167a2",
+                    "sequencer": "005991B3FB899D1453",
+                    "key": "processing/1c73739ce603ef05c11fd050dc58e590/key1.json",
+                    "size": 291
+                },
+                "bucket": {
+                    "arn": "arn:aws:s3:::deep14-video-rekognition-photo",
+                    "name": "deep14-video-rekognition-photo",
+                    "ownerIdentity": {
+                        "principalId": "xxxx"
+                    }
+                },
+                "s3SchemaVersion": "1.0"
+            },
+            "responseElements": {
+                "x-amz-id-2": "y8+LZ2KwhohHRa5w+L6BQcvVb5KgXptT2lanOnbRN5cO9wDKF6h5Q8inldWBUWCl8WVqN/ETyKw=",
+                "x-amz-request-id": "xxx"
+            },
+            "awsRegion": "us-west-2",
+            "eventName": "ObjectCreated:Put",
+            "userIdentity": {
+                "principalId": "AWS:xxx:deep-SVBPRekognitionCore-xxxx"
+            },
+            "eventSource": "aws:s3"
+        }
+    ]
+}

@@ -1,0 +1,2093 @@
+{
+  "Description" : "(SO0032) - Video Frame Based Analysis: Deploys and configures a video frame based analysis solution. **WARNING** This template creates AWS resources. You will be billed for the AWS resources used if you create a stack from this template.",
+
+  "Parameters": {
+    "VideoBucket": {
+      "Description": "Unique S3 Bucket (created by this template) name to host videos for processing by this solution.",
+      "Type": "String",
+      "Default": "video-frame-based-analysis-video",
+      "ConstraintDescription": "Must be a valid S3 bucket name.",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern": "[a-zA-Z][a-zA-Z0-9-.]*"
+    },
+    "PhotoBucket": {
+      "Description": "Unique S3 Bucket (created by this template) name to host images used to search video metadata.",
+      "Type": "String",
+      "Default": "video-frame-based-analysis-photo",
+      "ConstraintDescription": "Must be a valid S3 bucket name.",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern": "[a-zA-Z][a-zA-Z0-9-.]*"
+    },
+    "MinSimultaneousVideos" : {
+      "Description": "Minimum number of simultaneous videos that this solution should support.",
+      "Type": "Number",
+      "Default": "1"
+    },
+    "MaxSimultaneousVideos" : {
+      "Description": "Maximum number of simultaneous videos that this solution should support.",
+      "Type": "Number",
+      "Default": "2"
+    },
+    "MaxParallellLambdaExecutions" : {
+      "Description": "Maximum number of simultaneous Lambda functions processing each video.",
+      "Type": "Number",
+      "Default": "20"
+    },
+    "KeyName": {
+      "Description": "Existing Amazon EC2 key pair for SSH access to the EC2 instances",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+    },
+    "SSHLocation": {
+      "Description": "IP address range that can access EC2 instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    },
+    "LambdaLogLevel" : {
+      "Description": "Log level for Lambda functions.",
+      "Type": "String",
+      "Default": "INFO",
+      "AllowedValues": [ "DEBUG", "INFO","WARNING", "ERROR","CRITICAL" ]
+    },
+    "CollectionMaxSize" : {
+      "Description": "Maximum number of faces to be indexed in each Amazon Rekognition collection.",
+      "Type": "Number",
+      "Default": 100000
+    }
+  },
+  "Metadata" : {
+      "AWS::CloudFormation::Interface" : {
+       "ParameterGroups" : [
+        {
+          "Label" : { "default":"Bucket Configuration" },
+          "Parameters" : [ "VideoBucket", "PhotoBucket" ]
+        },
+        {
+          "Label" : { "default":"Amazon EC2 Configuration" },
+          "Parameters" : [ "KeyName", "SSHLocation", "MinSimultaneousVideos", "MaxSimultaneousVideos" ]
+        },
+        {
+          "Label" : { "default":"Lambda Configuration" },
+          "Parameters" : [ "MaxParallellLambdaExecutions", "LambdaLogLevel", "CollectionMaxSize" ]
+        }
+       ],
+       "ParameterLabels" : {
+        "VideoBucket" : { "default" : "New Video Bucket" },
+        "PhotoBucket" : { "default" : "New Face Search Bucket" },
+        "MinSimultaneousVideos" : { "default" : "Min Videos" },
+        "MaxSimultaneousVideos" : { "default" : "Max Videos" },
+        "KeyName" : { "default" : "EC2 Key Name" },
+        "SSHLocation" : { "default" : "SSH Location" },
+        "MaxParallellLambdaExecutions" : { "default" : "Max Simultaneous Lambda Executions" },
+        "LambdaLogLevel" : { "default" : "Lambda Log Level" },
+        "CollectionMaxSize" : { "default" : "Max Faces in Collection"}
+       }
+     }
+  },
+  "Mappings" : {
+    "AmiMap" : {
+      "us-east-1"       : {"HVM64":"ami-a4c7edb2"},
+      "us-east-2"       : {"HVM64":"ami-8a7859ef"},
+      "us-west-2"       : {"HVM64":"ami-6df1e514"},
+      "us-west-1"       : {"HVM64":"ami-327f5352"},
+      "ca-central-1"    : {"HVM64":"ami-a7aa15c3"},
+      "eu-west-1"       : {"HVM64":"ami-d7b9a2b1"},
+      "eu-west-2"       : {"HVM64":"ami-ed100689"},
+      "eu-central-1"    : {"HVM64":"ami-82be18ed"},
+      "ap-southeast-1"  : {"HVM64":"ami-77af2014"},
+      "ap-northeast-2"  : {"HVM64":"ami-e21cc38c"},
+      "ap-northeast-1"  : {"HVM64":"ami-3bd3c45c"},
+      "ap-southeast-2"  : {"HVM64":"ami-10918173"},
+      "ap-south-1"      : {"HVM64":"ami-47205e28"},
+      "sa-east-1"       : {"HVM64":"ami-87dab1eb"},
+      "cn-north-1"      : {"HVM64":"ami-b6f928db"}
+    },
+    "SourceCode" : {
+      "General" 	: { "LambdaBucket"	: "%%BUCKET_NAME%%",
+						          "S3Key" 	: "video-frame-based-analysis/latest"}
+      },
+    "Send" : {
+      "AnonymousUsage" : { "Data" : "Yes" }
+    },
+    "S3EndPointMap": {
+      "us-east-1":      {"endpoint": "https://s3.amazonaws.com"},
+      "us-east-2":      {"endpoint": "https://s3.us-east-2.amazonaws.com"},
+      "us-west-1":      {"endpoint": "https://s3-us-west-1.amazonaws.com"},
+      "us-west-2":      {"endpoint": "https://s3-us-west-2.amazonaws.com"},
+      "ca-central-1":   {"endpoint": "https://s3.ca-central-1.amazonaws.com"},
+      "eu-west-1":      {"endpoint": "https://s3-eu-west-1.amazonaws.com"},
+      "eu-central-1":   {"endpoint": "https://s3.eu-central-1.amazonaws.com"},
+      "eu-west-2":      {"endpoint": "https://s3.eu-west-2.amazonaws.com"},
+      "ap-northeast-1": {"endpoint": "https://s3-ap-northeast-1.amazonaws.com"},
+      "ap-northeast-2": {"endpoint": "https://s3.ap-northeast-2.amazonaws.com"},
+      "ap-southeast-1": {"endpoint": "https://s3-ap-southeast-1.amazonaws.com"},
+      "ap-southeast-2": {"endpoint": "https://s3-ap-southeast-2.amazonaws.com"},
+      "ap-south-1":     {"endpoint": "https://s3.ap-south-1.amazonaws.com"},
+      "sa-east-1":      {"endpoint": "https://s3-sa-east-1.amazonaws.com"}
+    }
+  },
+  "Resources": {
+    "RVAVIDEOPROCESSIN" : {
+        "Type" : "AWS::SQS::Queue",
+        "Properties" : {
+           "QueueName" : "RVA-VIDEO-PROCESS-IN",
+           "VisibilityTimeout": 1200
+              }
+      },
+  	"S3EventQueuePolicy" : {
+        "Type" : "AWS::SQS::QueuePolicy",
+        "DependsOn" : [ "RVAVIDEOPROCESSIN" ],
+        "Properties" : {
+          "PolicyDocument" : {
+              "Id": "SQSPolicy",
+              "Statement": [
+                  {
+                      "Sid": "SQSEventPolicy",
+                      "Effect": "Allow",
+                      "Principal": "*",
+                      "Action": "SQS:SendMessage",
+                      "Resource": "*",
+                      "Condition": {
+                          "ArnLike": {
+                              "aws:SourceArn": { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "VideoBucket" }]]}
+                          }
+                      }
+                  },
+                  {
+                      "Sid": "SQSEventPolicy",
+                      "Effect": "Allow",
+                      "Principal": "*",
+                      "Action": "SQS:SendMessage",
+                      "Resource": "*",
+                      "Condition": {
+                          "ArnLike": {
+                              "aws:SourceArn": { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "PhotoBucket" }]]}
+                          }
+                      }
+                  }
+              ]
+          },
+          "Queues" : [ { "Ref" : "RVAVIDEOPROCESSIN"} ]
+      	}
+      },
+    "RVAPROCESSTABLE" : {
+        "Type" : "AWS::DynamoDB::Table",
+        "Properties" : {
+          "AttributeDefinitions" : [ {
+            "AttributeName" : "Identifier",
+            "AttributeType" : "S"
+          } ],
+          "KeySchema" : [ {
+            "AttributeName" : "Identifier",
+            "KeyType" : "HASH"
+          } ],
+          "ProvisionedThroughput" : {
+            "ReadCapacityUnits" : "10",
+            "WriteCapacityUnits" : "10"
+          },
+          "TableName" : "RVA_PROCESS_TABLE",
+          "StreamSpecification" : { "StreamViewType" : "NEW_IMAGE"}
+        }
+      },
+    "RVAVIDEOSRESULTSTABLE" : {
+        "Type" : "AWS::DynamoDB::Table",
+        "Properties" : {
+          "AttributeDefinitions" : [ {
+            "AttributeName" : "Identifier",
+            "AttributeType" : "S"
+          } ],
+          "KeySchema" : [ {
+            "AttributeName" : "Identifier",
+            "KeyType" : "HASH"
+          } ],
+          "ProvisionedThroughput" : {
+            "ReadCapacityUnits" : "5",
+            "WriteCapacityUnits" : "15"
+          },
+          "TableName" : "RVA_VIDEOS_RESULTS_TABLE"
+        }
+      },
+    "RVACOLLECTIONCONTROLTABLE" : {
+        "Type" : "AWS::DynamoDB::Table",
+        "Properties" : {
+          "AttributeDefinitions" : [ {
+            "AttributeName" : "Identifier",
+            "AttributeType" : "S"
+          } ],
+          "KeySchema" : [ {
+            "AttributeName" : "Identifier",
+            "KeyType" : "HASH"
+          } ],
+          "ProvisionedThroughput" : {
+            "ReadCapacityUnits" : "5",
+            "WriteCapacityUnits" : "5"
+          },
+          "TableName" : "RVA_COLLECTION_CONTROL_TABLE"
+        }
+    },
+    "RVAFRAMESRESULTSTABLE" : {
+        "Type" : "AWS::DynamoDB::Table",
+        "Properties" : {
+          "AttributeDefinitions": [
+              {
+                  "AttributeName": "Identifier",
+                  "AttributeType": "S"
+              },
+              {
+                  "AttributeName": "Key",
+                  "AttributeType": "S"
+              }
+          ],
+          "KeySchema": [
+              {
+                  "KeyType": "HASH",
+                  "AttributeName": "Identifier"
+              },
+              {
+                  "KeyType": "RANGE",
+                  "AttributeName": "Key"
+              }
+          ],
+          "ProvisionedThroughput" : {
+            "ReadCapacityUnits" : "5",
+            "WriteCapacityUnits" : "30"
+          },
+          "TableName" : "RVA_FRAMES_RESULTS_TABLE"
+        }
+      },
+    "RVAVIDEOSLABELSTABLE": {
+          "Type": "AWS::DynamoDB::Table",
+          "Properties": {
+            "AttributeDefinitions": [
+              {
+                "AttributeName": "Identifier",
+                "AttributeType": "S"
+              },
+              {
+                "AttributeName": "Key",
+                "AttributeType": "S"
+              }
+            ],
+            "KeySchema": [
+              {
+                "KeyType": "HASH",
+                "AttributeName": "Identifier"
+              },
+              {
+                "KeyType": "RANGE",
+                "AttributeName": "Key"
+              }
+            ],
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": "10",
+              "WriteCapacityUnits": "40"
+            },
+            "StreamSpecification": {
+              "StreamViewType": "NEW_IMAGE"
+            },
+            "TableName": "RVA_VIDEOS_LABELS_TABLE"
+          }
+        },
+    "SVBPPROCESSINGTABLE" : {
+        "Type" : "AWS::DynamoDB::Table",
+        "Properties" : {
+          "AttributeDefinitions": [
+              {
+                  "AttributeName": "object_id",
+                  "AttributeType": "S"
+              }
+          ],
+          "KeySchema": [
+              {
+                  "KeyType": "HASH",
+                  "AttributeName": "object_id"
+              }
+          ],
+          "ProvisionedThroughput" : {
+            "ReadCapacityUnits" : "5",
+            "WriteCapacityUnits" : "5"
+          },
+          "StreamSpecification": {
+            "StreamViewType": "NEW_AND_OLD_IMAGES"
+          },
+          "TableName" : "svbp_processing"
+        }
+      },
+    "SVBPRESULTSTABLE" : {
+        "Type" : "AWS::DynamoDB::Table",
+        "Properties" : {
+          "AttributeDefinitions" : [ {
+            "AttributeName" : "object_id",
+            "AttributeType" : "S"
+          } ],
+          "KeySchema" : [ {
+            "AttributeName" : "object_id",
+            "KeyType" : "HASH"
+          } ],
+          "ProvisionedThroughput" : {
+            "ReadCapacityUnits" : "5",
+            "WriteCapacityUnits" : "5"
+          },
+          "TableName" : "svbp_results"
+        }
+      },
+    "S3VideoBucket": {
+        "Type": "AWS::S3::Bucket",
+        "DependsOn": [
+          "RVAVIDEOPROCESSIN",
+          "S3EventQueuePolicy"
+        ],
+        "Properties": {
+          "BucketName": {
+            "Ref": "VideoBucket"
+          },
+          "NotificationConfiguration": {
+            "QueueConfigurations": [
+              {
+                "Event": "s3:ObjectCreated:*",
+                "Queue": {
+                  "Fn::GetAtt": [
+                    "RVAVIDEOPROCESSIN",
+                    "Arn"
+                  ]
+                },
+                "Filter": {
+                  "S3Key": {
+                    "Rules": [
+                      {
+                        "Name": "suffix",
+                        "Value": ".mp4"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+    "S3VideoBucketPolicy": {
+        "Type" : "AWS::S3::BucketPolicy",
+        "Properties": {
+          "Bucket" : {"Ref": "S3VideoBucket"},
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+  			    "Action":["s3:GetObject", "s3:PutObject", "s3:PutObjectAcl"],
+  			    "Effect":"Allow",
+  			    "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "VideoBucket" },"/*" ]]},
+  			    "Principal": {"AWS" : [{ "Fn::Join" : ["", ["arn:aws:iam::",{ "Ref" : "AWS::AccountId" }, ":root" ]]}]}
+  			},
+  			{
+                "Sid": "DenyIncorrectEncryptionHeader",
+                "Effect": "Deny",
+                "Principal": "*",
+                "Action": "s3:PutObject",
+                "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "VideoBucket" },"/*" ]]},
+                "Condition": {
+                  "StringNotEquals": {
+                    "s3:x-amz-server-side-encryption": "AES256"
+                  }
+                }
+              },
+              {
+                "Sid": "DenyUnEncryptedObjectUploads",
+                "Effect": "Deny",
+                "Principal": "*",
+                "Action": "s3:PutObject",
+                "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "VideoBucket" },"/*" ]]},
+                "Condition": {
+                  "Null": {
+                    "s3:x-amz-server-side-encryption": "true"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+    "S3PhotoBucket": {
+        "Type": "AWS::S3::Bucket",
+        "DependsOn": ["SVBPRekognitionCore","PhotoBucketCoreLambdaInvokePermission","SVBPRekognitionWorker","PhotoBucketWorkerLambdaInvokePermission"],
+        "Properties": {
+          "BucketName" : {
+            "Ref" : "PhotoBucket"
+          },
+          "NotificationConfiguration" : {
+            "LambdaConfigurations" : [ {
+              "Event" : "s3:ObjectCreated:*",
+              "Function" : {
+                "Fn::GetAtt" : [ "SVBPRekognitionCore", "Arn" ]
+              },
+              "Filter" : {
+                "S3Key" : {
+                  "Rules" : [ {
+                    "Name" : "suffix",
+                    "Value" : ".jpg"
+                  },{
+                    "Name" : "prefix",
+                    "Value" : "upload/"
+                  } ]
+                }
+              }
+            },{
+              "Event" : "s3:ObjectCreated:*",
+              "Function" : {
+                "Fn::GetAtt" : [ "SVBPRekognitionWorker", "Arn" ]
+              },
+              "Filter" : {
+                "S3Key" : {
+                  "Rules" : [ {
+                    "Name" : "prefix",
+                    "Value" : "processing/"
+                  } ]
+                }
+              }
+            }]
+          }
+        }
+      },
+    "S3PhotoBucketPolicy": {
+        "Type" : "AWS::S3::BucketPolicy",
+        "DependsOn": ["S3PhotoBucket"],
+        "Properties": {
+          "Bucket" : {"Ref": "S3PhotoBucket"},
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+  			    "Action":["s3:GetObject", "s3:PutObject", "s3:PutObjectAcl"],
+  			    "Effect":"Allow",
+  			    "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "PhotoBucket" },"/*" ]]},
+  			    "Principal": {"AWS" : [{ "Fn::Join" : ["", ["arn:aws:iam::",{ "Ref" : "AWS::AccountId" }, ":root" ]]}]}
+  			},
+  			{
+                "Sid": "DenyIncorrectEncryptionHeader",
+                "Effect": "Deny",
+                "Principal": "*",
+                "Action": "s3:PutObject",
+                "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "PhotoBucket" },"/*" ]]},
+                "Condition": {
+                  "StringNotEquals": {
+                    "s3:x-amz-server-side-encryption": "AES256"
+                  }
+                }
+              },
+              {
+                "Sid": "DenyUnEncryptedObjectUploads",
+                "Effect": "Deny",
+                "Principal": "*",
+                "Action": "s3:PutObject",
+                "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "PhotoBucket" },"/*" ]]},
+                "Condition": {
+                  "Null": {
+                    "s3:x-amz-server-side-encryption": "true"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+    "PhotoBucketCoreLambdaInvokePermission" : {
+        "Type" : "AWS::Lambda::Permission",
+        "Properties" : {
+          "FunctionName" : {
+            "Fn::GetAtt" : [ "SVBPRekognitionCore", "Arn" ]
+          },
+          "Action" : "lambda:InvokeFunction",
+          "Principal" : "s3.amazonaws.com",
+          "SourceArn" : {
+            "Fn::Join" : [ "", [ "arn:aws:s3:::", {
+              "Ref" : "PhotoBucket"
+            } ] ]
+          }
+        }
+      },
+    "PhotoBucketWorkerLambdaInvokePermission" : {
+        "Type" : "AWS::Lambda::Permission",
+        "Properties" : {
+          "FunctionName" : {
+            "Fn::GetAtt" : [ "SVBPRekognitionWorker", "Arn" ]
+          },
+          "Action" : "lambda:InvokeFunction",
+          "Principal" : "s3.amazonaws.com",
+          "SourceArn" : {
+            "Fn::Join" : [ "", [ "arn:aws:s3:::", {
+              "Ref" : "PhotoBucket"
+            } ] ]
+          }
+        }
+      },
+    "RVASNSMILESTONESTOPIC": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "TopicName" : "rva-sns-milestones-topic",
+        "Subscription": [
+          {
+            "Endpoint": {
+              "Fn::GetAtt": ["11Preparelabeltimelinefunction", "Arn"]
+            },
+            "Protocol": "lambda"
+          }
+        ]
+      },
+      "DependsOn": [
+        "11Preparelabeltimelinefunction"
+      ]
+    },
+    "RVASNSMILESTONESTOPICLambdaInvokePermission": {
+        "Type": "AWS::Lambda::Permission",
+        "Properties": {
+          "Action": "lambda:InvokeFunction",
+          "Principal": "sns.amazonaws.com",
+          "SourceArn": {
+            "Ref": "RVASNSMILESTONESTOPIC"
+          },
+          "FunctionName": {
+            "Fn::GetAtt": [
+              "11Preparelabeltimelinefunction",
+              "Arn"
+            ]
+          }
+        }
+      },
+    "VFBASNSRESULTSTOPIC": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "TopicName" : "vfba-sns-results-topic"
+      }
+    },
+    "Ec2Role": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": [
+                    "ec2.amazonaws.com"
+                  ]
+                },
+                "Action": [
+                  "sts:AssumeRole"
+                ]
+              }
+            ]
+          },
+          "Path": "/",
+          "Policies": [
+            {
+              "PolicyName": "S3Policy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+  				          "Action": [
+  		                  "s3:ListBucket"
+  				          ],
+  				          "Resource": { "Fn::Join": ["", ["arn:aws:s3:::", {"Ref": "S3VideoBucket"} ]] }
+                  },{
+                    "Effect": "Allow",
+  				          "Action": [
+  		                  "s3:GetObject",
+  			                "s3:DeleteObject",
+  			                "s3:PutObject",
+  			                "s3:PutObjectAcl"
+  				          ],
+  				          "Resource": { "Fn::Join": ["", ["arn:aws:s3:::", {"Ref": "S3VideoBucket"}, "/*" ]] }
+                  }
+                ]
+              }
+            },
+            {
+              "PolicyName": "CWLogsPolicy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+  				          "Action": [
+                      "logs:CreateLogGroup",
+  		                "logs:CreateLogStream",
+  		                "logs:PutLogEvents"
+  		              ],
+  			            "Resource": { "Fn::Join" : ["", ["arn:aws:logs:",{"Ref" : "AWS::Region"},":",{ "Ref" : "AWS::AccountId" }, ":log-group:video-frame-based-analysis-nodes:*" ]]}
+                  }
+                ]
+              }
+            },
+            {
+              "PolicyName": "SQSPolicy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+  		            "Effect": "Allow",
+  		            "Action": [
+  		                "sqs:DeleteMessage",
+  		                "sqs:GetQueueUrl",
+  		                "sqs:ReceiveMessage"
+  		            ],
+  		            "Resource": [
+  		                {"Fn::GetAtt" : [ "RVAVIDEOPROCESSIN", "Arn" ]}
+  		            ]
+  		        }
+                ]
+              }
+            },
+            {
+              "PolicyName": "LambdaPolicy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+  		            "Effect": "Allow",
+  		            "Action": [
+  		                "lambda:InvokeFunction"
+  		            ],
+  		            "Resource": [
+                      {"Fn::GetAtt" : [ "Metrics", "Arn" ]},
+  		                {"Fn::GetAtt" : [ "03RVAIoTpublishmessagefunction", "Arn" ]}
+  		            ]
+  		        }
+                ]
+              }
+            },
+            {
+              "PolicyName": "DynamoDBPolicy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+  		            "Effect": "Allow",
+  		            "Action": [
+  		                "dynamodb:PutItem"
+  		            ],
+  		            "Resource" : [{
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/RVA_PROCESS_TABLE" ] ]
+  		            },{
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/RVA_VIDEOS_RESULTS_TABLE" ] ]
+  		            },{
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/RVA_FRAMES_RESULTS_TABLE" ] ]
+  		            }]
+  		        }
+                ]
+              }
+            }
+          ]
+        }
+      },
+
+      "Ec2Profile": {
+          "Type": "AWS::IAM::InstanceProfile",
+          "Properties": {
+              "Path": "/",
+              "Roles": [
+                  {
+                      "Ref": "Ec2Role"
+                  }
+              ]
+          }
+      },
+    "Ec2SecurityGroup":{
+        "Type": "AWS::EC2::SecurityGroup",
+          "Properties" : {
+            "GroupDescription": "VFBA Image Processing Server Autoscaling Group access",
+            "SecurityGroupIngress" : [
+              {"IpProtocol": "tcp","FromPort": "22","ToPort": "22","CidrIp": {"Ref": "SSHLocation"}}
+            ]
+         }
+    },
+    "Ec2LaunchConfig":{
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Metadata" : {
+        "AWS::CloudFormation::Init" : {
+          "configSets" : {
+            "EC2ServerInstall" : ["Config","Install"]
+          },
+          "Config" : {
+              "packages" : {
+                "yum" : {
+                  "python27": [],
+                  "python27-numpy": [],
+                  "cmake": [],
+                  "gcc-c++": [],
+                  "jq": [],
+                  "git":[],
+                  "awslogs":[]
+                }
+              },
+              "files": {
+                "/tmp/install-video-tools": {
+                  "content": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "#!/bin/bash -xe\n",
+                        "\n",
+                        "if [ $(whoami) != \"root\" ]; then\n",
+                        "    echo \"You must be root to execute this script file\"\n",
+                        "    exit 1\n",
+                        "fi\n",
+                        "\n",
+                        "# Install dependencies\n",
+                        "yum update -y\n",
+                        "yum install -y python27-numpy git cmake gcc-c++ jq\n",
+                        "\n",
+                        "# Download and install ffmpeg\n",
+                        "cd /tmp\n",
+                        "curl -O curl -O https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-64bit-static.tar.xz\n",
+                        "tar -xJf ffmpeg-git-64bit-static.tar.xz -C /opt/\n",
+                        "ln -fs /opt/ffmpeg-git-*-64bit-static/ffmpeg /usr/bin/\n",
+                        "\n",
+                        "# Install preprocess-service\n",
+                        "mkdir -p /opt/video-frame-based-analysis/tmp/videos /opt/video-frame-based-analysis/tmp/images\n",
+                        "curl -o /opt/video-frame-based-analysis/preprocess-service.sh ",{ "Fn::FindInMap" : [ "S3EndPointMap", { "Ref" : "AWS::Region"}, "endpoint"]},"/",{ "Fn::FindInMap" : [ "SourceCode", "General", "LambdaBucket"]},"-",{"Ref" : "AWS::Region"},"/",{ "Fn::FindInMap" : [ "SourceCode", "General", "S3Key"]},"/server/preprocess-service.sh\n",
+                        "chmod 755 /opt/video-frame-based-analysis/preprocess-service.sh\n",
+                        "sed -i \"s/<iot_publish_function>/",
+                        {
+                          "Ref": "03RVAIoTpublishmessagefunction"
+                        },
+                        "/g\" /opt/video-frame-based-analysis/preprocess-service.sh\n",
+                        "sed -i \"s/<metrics_function>/",
+                        {
+                          "Ref": "Metrics"
+                        },
+                        "/g\" /opt/video-frame-based-analysis/preprocess-service.sh\n",
+                        "\n",
+                        "# Install and configure supervisord\n",
+                        "easy_install supervisor\n",
+                        "curl -o /etc/supervisord.conf ",{ "Fn::FindInMap" : [ "S3EndPointMap", { "Ref" : "AWS::Region"}, "endpoint"]},"/",{ "Fn::FindInMap" : [ "SourceCode", "General", "LambdaBucket"]},"-",{"Ref" : "AWS::Region"},"/",{ "Fn::FindInMap" : [ "SourceCode", "General", "S3Key"]},"/server/supervisord.conf\n",
+                        "curl -o /etc/init.d/supervisor ",{ "Fn::FindInMap" : [ "S3EndPointMap", { "Ref" : "AWS::Region"}, "endpoint"]},"/",{ "Fn::FindInMap" : [ "SourceCode", "General", "LambdaBucket"]},"-",{"Ref" : "AWS::Region"},"/",{ "Fn::FindInMap" : [ "SourceCode", "General", "S3Key"]},"/server/supervisor\n",
+                        "chmod 755 /etc/init.d/supervisor\n",
+                        "chkconfig --add supervisor\n",
+                        "chkconfig supervisor on\n",
+                        "service supervisor start\n",
+                        "\n",
+                        "# Clear /tmp directory\n",
+                        "rm -Rf /tmp/opencv-3.2.0\n",
+                        "rm -Rf /tmp/facedetect\n",
+                        "\n"
+                                          ]
+                    ]
+                  },
+                  "mode": "000700",
+                  "owner": "root",
+                  "group": "root"
+                },
+                "/etc/awslogs/awslogs.conf": {
+                  "content": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "[general]\n",
+                        "state_file= /var/awslogs/agent-state\n",
+                        "[/var/log/cfn-init.log]\n",
+                        "file = /var/log/cfn-init.log\n",
+                        "log_group_name = video-frame-based-analysis-nodes\n",
+                        "log_stream_name = {instance_id}/cfn-init.log\n",
+                        "datetime_format = %d/%b/%Y:%H:%M:%S\n",
+                        "[/var/log/preprocess.err.log]\n",
+                        "file = /var/log/preprocess.err.log\n",
+                        "log_group_name = video-frame-based-analysis-nodes\n",
+                        "log_stream_name = preprocess.err.log\n",
+                        "datetime_format = %d/%b/%Y:%H:%M:%S\n",
+                        "[/var/log/preprocess.out.log]\n",
+                        "file = /var/log/preprocess.out.log\n",
+                        "log_group_name = video-frame-based-analysis-nodes\n",
+                        "log_stream_name = preprocess.out.log\n",
+                        "datetime_format = %d/%b/%Y:%H:%M:%S\n"
+                      ]
+                    ]
+                  },
+                  "mode": "000644",
+                  "owner": "root",
+                  "group": "root"
+                },
+                "/etc/awslogs/awscli.conf": {
+                  "content": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "[plugins]\n",
+                        "cwlogs = cwlogs\n",
+                        "[default]\n",
+                        "region = ",
+                        { "Ref" : "AWS::Region" }
+                      ]
+                    ]
+                  },
+                  "mode": "000644",
+                  "owner": "root",
+                  "group": "root"
+                },
+                "/var/awslogs/agent-state": {
+                  "content": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        " "
+                      ]
+                    ]
+                  },
+                  "mode": "000644",
+                  "owner": "root",
+                  "group": "root"
+                }
+              },
+              "services": {
+                "sysvinit": {
+                  "awslogs": {
+                    "enabled": "true",
+                    "ensureRunning": "true"
+                  }
+                }
+              }
+          },
+          "Install":{
+          "commands" : {
+                  "01-install-video-tools" : {
+                  "command" : "/tmp/install-video-tools",
+                  "cwd" : "/tmp"
+                  }
+             }
+            }
+          }
+        },
+
+      "Properties" : {
+        "ImageId" : { "Fn::FindInMap" : [ "AmiMap", { "Ref" : "AWS::Region" }, "HVM64"]},
+        "InstanceType":"m4.large",
+        "IamInstanceProfile"   : {"Ref":"Ec2Profile"},
+        "SecurityGroups" : [ {"Ref" : "Ec2SecurityGroup"} ],
+        "KeyName": {"Ref": "KeyName"},
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
+          "#!/bin/bash -xe\n",
+          "yum update -y aws-cfn-bootstrap\n",
+          "/opt/aws/bin/cfn-init -v",
+          "    --stack ", { "Ref" : "AWS::StackName" },
+          "    --resource Ec2LaunchConfig",
+          "    --configsets EC2ServerInstall",
+          "    --region ", { "Ref" : "AWS::Region" }, "\n",
+          "/opt/aws/bin/cfn-signal -e $? ",
+          "    --stack ", { "Ref" : "AWS::StackName" },
+          "    --resource EC2AutoScalingGroup ",
+          "    --region ", { "Ref" : "AWS::Region" }, "\n"
+          ]]}}
+      }
+    },
+    "EC2AutoScalingGroup" : {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+        "AvailabilityZones" : { "Fn::GetAZs" : "" },
+        "LaunchConfigurationName" : { "Ref" : "Ec2LaunchConfig" },
+        "MinSize" : { "Ref" : "MinSimultaneousVideos"},
+        "DesiredCapacity" : { "Ref" : "MinSimultaneousVideos"},
+        "MaxSize" : { "Ref" : "MaxSimultaneousVideos"},
+        "Tags" : [ {
+          "Key" : "Name",
+          "Value" : "VFBA Video Frame Processing Node",
+          "PropagateAtLaunch" : "true"
+        } ]
+      },
+      "CreationPolicy" : {
+        "ResourceSignal" : {
+          "Count": { "Ref" : "MinSimultaneousVideos"},
+          "Timeout" : "PT60M"
+        }
+      }
+    },
+    "ScaleUpPolicy" : {
+      "Type" : "AWS::AutoScaling::ScalingPolicy",
+      "Properties" : {
+        "AdjustmentType" : "ChangeInCapacity",
+        "AutoScalingGroupName" : { "Ref" : "EC2AutoScalingGroup" },
+        "Cooldown" : "600",
+        "ScalingAdjustment" : "1"
+      }
+    },
+    "ScaleDownPolicy" : {
+      "Type" : "AWS::AutoScaling::ScalingPolicy",
+      "Properties" : {
+        "AdjustmentType" : "ChangeInCapacity",
+        "AutoScalingGroupName" : { "Ref" : "EC2AutoScalingGroup" },
+        "Cooldown" : "300",
+        "ScalingAdjustment" : "-1"
+      }
+    },
+    "CPUAlarmHigh": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "EvaluationPeriods": "3",
+        "Statistic": "Maximum",
+        "Threshold": "70",
+        "AlarmDescription": "VFBA: Alarm on high video processing node CPU to trigger scale up events.",
+        "Period": "60",
+        "AlarmActions": [ { "Ref": "ScaleUpPolicy" } ],
+        "Namespace": "AWS/EC2",
+        "Dimensions": [{
+          "Name": "AutoScalingGroupName",
+          "Value": { "Ref": "EC2AutoScalingGroup" }
+        }],
+        "ComparisonOperator": "GreaterThanThreshold",
+        "MetricName": "CPUUtilization"
+      }
+    },
+    "CPUAlarmLow": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "EvaluationPeriods": "4",
+        "Statistic": "Maximum",
+        "Threshold": "40",
+        "AlarmDescription": "VFBA: Alarm on low video processing node CPU to trigger scale down events.",
+        "Period": "300",
+        "AlarmActions": [ { "Ref": "ScaleDownPolicy" } ],
+        "Namespace": "AWS/EC2",
+        "Dimensions": [{
+          "Name": "AutoScalingGroupName",
+          "Value": { "Ref": "EC2AutoScalingGroup" }
+        }],
+        "ComparisonOperator": "LessThanThreshold",
+        "MetricName": "CPUUtilization"
+      }
+    },
+    "03RVAIoTpublishmessagefunctionRole": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+          "ManagedPolicyArns": [
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+          ],
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "lambda.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Policies": [
+            {
+              "PolicyName": "IotPublishPolicy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Action": [
+                      "iot:Publish"
+                    ],
+                    "Resource": [
+                      "*"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+    "03RVAIoTpublishmessagefunction": {
+        "Type": "AWS::Lambda::Function",
+        "Properties": {
+            "Handler": "lambda_function.lambda_handler",
+            "Runtime": "python2.7",
+            "Code": {
+              "S3Bucket" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "LambdaBucket"]},"-",{"Ref" : "AWS::Region"}]]},
+              "S3Key" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "S3Key"]},"/03-RVA_IoT_publish_message_function.zip"]]}
+            },
+            "Description": "VFBA: Publish messages  to IoT Topic.",
+            "Environment" : { "Variables" :{
+              "LOG_LEVEL": {"Ref": "LambdaLogLevel"}
+              }
+            },
+            "MemorySize": 128,
+            "Timeout": 3,
+            "Role": {
+              "Fn::GetAtt" : [ "03RVAIoTpublishmessagefunctionRole", "Arn" ]
+              }
+        }
+    },
+    "05RVAprocessdynamodbstreamfunctionRole" : {
+        "Type" : "AWS::IAM::Role",
+        "Properties" : {
+  		      "ManagedPolicyArns":
+                      [
+                          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                      ],
+            "AssumeRolePolicyDocument" : {
+            "Version" : "2012-10-17",
+            "Statement" : [ {
+              "Effect" : "Allow",
+              "Principal" : {
+                "Service" : "lambda.amazonaws.com"
+              },
+              "Action" : "sts:AssumeRole"
+            } ]
+          },
+          "Policies" : [
+             	  {
+  	            "PolicyName": "LambdaRekognitionPolicy",
+  	            "PolicyDocument": {
+  	              "Version": "2012-10-17",
+  	              "Statement": [
+  	                {
+  		            "Effect": "Allow",
+  		            "Action": [
+                  		"rekognition:CreateCollection",
+                      "rekognition:DeleteCollection"
+  		            ],
+  		            "Resource": [{"Fn::Join" : [ "", [ "arn:aws:rekognition:", {"Ref" : "AWS::Region"}, ":", {"Ref" : "AWS::AccountId"},":collection/*"]]}]
+  		            }
+  				  ]
+  	            }
+  	          },
+  	          {
+  	            "PolicyName": "LambdaPolicy",
+  	            "PolicyDocument": {
+  	              "Version": "2012-10-17",
+  	              "Statement": [
+  	                {
+  			            "Effect": "Allow",
+  			            "Action": [
+  			                "lambda:InvokeFunction"
+  			            ],
+  			            "Resource": [
+                      {"Fn::GetAtt": ["03RVAIoTpublishmessagefunction","Arn"]},
+                      {"Fn::GetAtt": ["06RVAprocessphotosfunction","Arn"]}
+                    ]
+  			        }
+  	              ]
+  	            }
+  	          },
+             {
+              "PolicyName": "DynamoDBPolicy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+  		            "Effect": "Allow",
+  		            "Action": [
+  		                "dynamodb:GetItem",
+  		                "dynamodb:PutItem",
+  		                "dynamodb:UpdateItem",
+  		                "dynamodb:GetRecords",
+  		                "dynamodb:GetShardIterator",
+  		                "dynamodb:DescribeStream",
+  		                "dynamodb:ListStreams"
+  		            ],
+  		            "Resource" : [{
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/RVA_PROCESS_TABLE" ] ]
+  		              },
+                  {
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/RVA_VIDEOS_RESULTS_TABLE" ] ]
+  		              },
+                    {
+    		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+    		                "Ref" : "AWS::Region"
+    		              }, ":", {
+    		                "Ref" : "AWS::AccountId"
+    		              }, ":table/RVA_COLLECTION_CONTROL_TABLE" ] ]
+    		              },
+                		{"Fn::GetAtt" : [ "RVAPROCESSTABLE", "StreamArn" ]}]
+  		        }
+                ]
+              }
+            },
+            {
+              "PolicyName": "SNSPolicy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Action": [
+                      "sns:Publish"
+                    ],
+                    "Resource": [
+                      {"Ref": "RVASNSMILESTONESTOPIC"}
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+  	"05RVAprocessdynamodbstreamfunction": {
+  	    "Type": "AWS::Lambda::Function",
+  	    "Properties": {
+  	        "Handler": "lambda_function.lambda_handler",
+  	        "Runtime": "python2.7",
+  	        "Code": {
+  	          "S3Bucket" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "LambdaBucket"]},"-",{"Ref" : "AWS::Region"}]]},
+  	          "S3Key" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "S3Key"]},"/05-RVA_process_dynamodbstream_function.zip"]]}
+  	        },
+  	        "Description": "VFBA: Processes DDB streams to support the video-frame-based-analysis workflow.",
+           	"Environment" : { "Variables" :{
+              "RVA_IoT_publish_message_function": {"Ref": "03RVAIoTpublishmessagefunction"},
+              "RVA_process_photos_function": {"Ref": "06RVAprocessphotosfunction"},
+              "MAX_TPS": {"Ref": "MaxParallellLambdaExecutions"},
+              "LOG_LEVEL": {"Ref": "LambdaLogLevel"},
+              "RVA_SNS_MILESTONES_TOPIC_ARN": {"Ref": "RVASNSMILESTONESTOPIC"},
+              "RVA_COLLECTION_MAX_SIZE": { "Ref": "CollectionMaxSize"}
+            }
+              },
+   	        "MemorySize": 128,
+  	        "Timeout": 60,
+           	"Role": {
+  	          "Fn::GetAtt" : [ "05RVAprocessdynamodbstreamfunctionRole", "Arn" ]
+          		}
+  	    }
+  	},
+    "06RVAprocessphotosfunctionRole" : {
+        "Type" : "AWS::IAM::Role",
+        "Properties" : {
+  		 "ManagedPolicyArns":
+                      [
+                          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                      ],
+            "AssumeRolePolicyDocument" : {
+            "Version" : "2012-10-17",
+            "Statement" : [ {
+              "Effect" : "Allow",
+              "Principal" : {
+                "Service" : "lambda.amazonaws.com"
+              },
+              "Action" : "sts:AssumeRole"
+            } ]
+          },
+          "Policies" : [
+  	          {
+  	            "PolicyName": "LambdaS3Policy",
+  	            "PolicyDocument": {
+  	              "Version": "2012-10-17",
+  	              "Statement": [
+  	                {
+  	                  "Effect": "Allow",
+  					          "Action": [
+  			                  "s3:GetObject",
+  				                "s3:DeleteObject",
+  				                "s3:PutObject",
+  				                "s3:ListBucket",
+  				                "s3:PutObjectAcl"
+  					  ],
+  					  "Resource": { "Fn::Join": ["", ["arn:aws:s3:::",
+  	                      {"Ref": "VideoBucket"},
+  				          "*" ]] }
+  	                }
+  	              ]
+  	            }
+  	          },
+             	  {
+  	            "PolicyName": "LambdaRekognitionPolicy",
+  	            "PolicyDocument": {
+  	              "Version": "2012-10-17",
+  	              "Statement": [
+  	                {
+  		            "Effect": "Allow",
+  		            "Action": [
+  		                "rekognition:DetectLabels",
+  		                "rekognition:IndexFaces",
+                      "rekognition:CreateCollection"
+  		            ],
+  		            "Resource": [
+                    "*"
+                  ]
+  		            }
+  		            ]
+  	            }
+  	          },
+  	          {
+                  "PolicyName": "DynamoDBPolicy",
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                  {
+  		            "Effect": "Allow",
+  		            "Action": [
+  		                "dynamodb:GetItem",
+  		                "dynamodb:PutItem",
+  		                "dynamodb:UpdateItem"
+  		            ],
+  		            "Resource" : [{
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/RVA_PROCESS_TABLE" ] ]
+  		            },{
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/RVA_VIDEOS_RESULTS_TABLE" ] ]
+  		            },{
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/RVA_FRAMES_RESULTS_TABLE" ] ]
+  		            },{
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/RVA_VIDEOS_LABELS_TABLE" ] ]
+  		            },
+                  {
+                    "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+                      "Ref" : "AWS::Region"
+                    }, ":", {
+                      "Ref" : "AWS::AccountId"
+                    }, ":table/RVA_COLLECTION_CONTROL_TABLE" ] ]
+                    }
+                  ]
+  		        }
+                ]
+              }
+            }]
+        }
+      },
+  	"06RVAprocessphotosfunction": {
+  	    "Type": "AWS::Lambda::Function",
+  	    "Properties": {
+  	        "Handler": "lambda_function.lambda_handler",
+  	        "Runtime": "python2.7",
+  	        "Code": {
+  	          "S3Bucket" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "LambdaBucket"]},"-",{"Ref" : "AWS::Region"}]]},
+  	          "S3Key" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "S3Key"]},"/06-RVA_process_photos_function.zip"]]}
+  	        },
+  	        "Description": "VFBA: Processes video frames through Amazon Rekognition to get image metadata.",
+            "Environment" : { "Variables" :{
+              "RVA_SNS_MILESTONES_TOPIC_ARN": {"Ref": "RVASNSMILESTONESTOPIC"},
+              "VIDEO_BUCKET": {"Ref": "S3VideoBucket"},
+              "LOG_LEVEL": {"Ref": "LambdaLogLevel"}
+            }
+          },
+  	        "MemorySize": 128,
+  	        "Timeout": 300,
+           	"Role": {
+  	          "Fn::GetAtt" : [ "06RVAprocessphotosfunctionRole", "Arn" ]
+          		}
+           }
+  	},
+    "11PreparelabeltimelinefunctionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "LambdaS3Policy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:DeleteObject",
+                    "s3:PutObject",
+                    "s3:ListBucket",
+                    "s3:PutObjectAcl"
+                  ],
+                  "Resource": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:aws:s3:::",
+                        {
+                          "Ref": "VideoBucket"
+                        },
+                        "*"
+                      ]
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "DynamoDBPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:GetItem",
+                    "dynamodb:PutItem",
+                    "dynamodb:UpdateItem",
+                    "dynamodb:Query"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:dynamodb:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":table/RVA_PROCESS_TABLE"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:dynamodb:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":table/RVA_VIDEOS_RESULTS_TABLE"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:dynamodb:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":table/RVA_FRAMES_RESULTS_TABLE"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:dynamodb:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":table/RVA_VIDEOS_LABELS_TABLE"
+                        ]
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "SNSPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sns:Publish"
+                  ],
+                  "Resource": [
+                    {"Ref": "VFBASNSRESULTSTOPIC"}
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "11Preparelabeltimelinefunction": {
+        "Type": "AWS::Lambda::Function",
+        "Properties": {
+            "Handler": "lambda_function.lambda_handler",
+            "Runtime": "python2.7",
+            "Code": {
+              "S3Bucket" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "LambdaBucket"]},"-",{"Ref" : "AWS::Region"}]]},
+              "S3Key" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "S3Key"]},"/11-Prepare_label_timeline.zip"]]}
+            },
+            "Description": "VFBA: Consolidates all label information from video files and stores the results in DDB, S3, and sends an SNS notificaiton.",
+            "Environment": {
+              "Variables": {
+                "S3_VIDEO_BUCKET": {"Ref": "S3VideoBucket"},
+                "VFBA_SNS_RESULTS_TOPIC_ARN": {"Ref": "VFBASNSRESULTSTOPIC"},
+                "LOG_LEVEL": {"Ref": "LambdaLogLevel"}
+              }
+            },
+            "MemorySize": 128,
+            "Timeout": 300,
+            "Role": {
+              "Fn::GetAtt" : [ "11PreparelabeltimelinefunctionRole", "Arn" ]
+              }
+        }
+    },
+    "SVBPRekognitionCoreRole" : {
+        "Type" : "AWS::IAM::Role",
+        "Properties" : {
+  		 "ManagedPolicyArns":
+                      [
+                          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                      ],
+            "AssumeRolePolicyDocument" : {
+            "Version" : "2012-10-17",
+            "Statement" : [ {
+              "Effect" : "Allow",
+              "Principal" : {
+                "Service" : "lambda.amazonaws.com"
+              },
+              "Action" : "sts:AssumeRole"
+            } ]
+          },
+          "Policies" : [
+  	          {
+  	            "PolicyName": "LambdaS3Policy",
+  	            "PolicyDocument": {
+  	              "Version": "2012-10-17",
+  	              "Statement": [
+  	                {
+  	                  "Effect": "Allow",
+  					  "Action": [
+  			                  "s3:GetObject",
+  				                "s3:DeleteObject",
+  				                "s3:PutObject",
+  				                "s3:PutObjectAcl"
+  					  ],
+  					  "Resource": { "Fn::Join": ["", ["arn:aws:s3:::",
+  	                      {"Ref": "PhotoBucket"},
+  				          "/*" ]] }
+  	                }
+  	              ]
+  	            }
+  	          },
+             	  {
+  	            "PolicyName": "LambdaRekognitionPolicy",
+  	            "PolicyDocument": {
+  	              "Version": "2012-10-17",
+  	              "Statement": [
+  	                {
+  		            "Effect": "Allow",
+  		            "Action": [
+                      "rekognition:ListCollections"
+  		            ],
+  		            "Resource": [{"Fn::Join" : [ "", [ "arn:aws:rekognition:", {"Ref" : "AWS::Region"}, ":", {"Ref" : "AWS::AccountId"},":*"]]}]
+  		            }
+  				  ]
+  	            }
+  	          },          {
+              "PolicyName": "DynamoDBPolicy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+  		            "Effect": "Allow",
+  		            "Action": [
+  		                "dynamodb:GetItem",
+  		                "dynamodb:PutItem",
+  		                "dynamodb:UpdateItem"
+  		            ],
+  		            "Resource" : [{
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/svbp_processing" ] ]
+  		            },{
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/svbp_results" ] ]
+  		            },
+                  {
+                    "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+                      "Ref" : "AWS::Region"
+                    }, ":", {
+                      "Ref" : "AWS::AccountId"
+                    }, ":table/RVA_COLLECTION_CONTROL_TABLE" ] ]
+                    }]
+  		        }
+                ]
+              }
+            }]
+        }
+      },
+  	"SVBPRekognitionCore": {
+  	    "Type": "AWS::Lambda::Function",
+        	"DependsOn" : [ "SVBPRekognitionCoreRole" ],
+  	    "Properties": {
+  	        "Handler": "lambda_function.lambda_handler",
+  	        "Runtime": "python2.7",
+  	        "Code": {
+  	          "S3Bucket" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "LambdaBucket"]},"-",{"Ref" : "AWS::Region"}]]},
+  	          "S3Key" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "S3Key"]},"/01-SVBP_rekognition_core.zip"]]}
+  	        },
+  	        "Description": "VFBA: Face search core function for creating a list of Amazon Rekognition collections to search.",
+            "Environment" : { "Variables" :{
+              "LOG_LEVEL": {"Ref": "LambdaLogLevel"}
+              }
+            },
+  	        "MemorySize": 128,
+  	        "Timeout": 30,
+           	"Role": {
+  	          "Fn::GetAtt" : [ "SVBPRekognitionCoreRole", "Arn" ]
+          		}
+  	    }
+  	},
+    "SVBPRekognitionWorkerRole" : {
+        "Type" : "AWS::IAM::Role",
+
+        "DependsOn": [
+            "SVBPRekognitionIOT"
+        ],
+        "Properties" : {
+  		 "ManagedPolicyArns":
+                      [
+                          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                      ],
+            "AssumeRolePolicyDocument" : {
+            "Version" : "2012-10-17",
+            "Statement" : [ {
+              "Effect" : "Allow",
+              "Principal" : {
+                "Service" : "lambda.amazonaws.com"
+              },
+              "Action" : "sts:AssumeRole"
+            } ]
+          },
+        "Policies" : [
+  	          {
+  	            "PolicyName": "LambdaS3Policy",
+  	            "PolicyDocument": {
+  	              "Version": "2012-10-17",
+  	              "Statement": [
+  	                {
+  	                  "Effect": "Allow",
+  					  "Action": [
+  			                  "s3:GetObject",
+  				                "s3:DeleteObject",
+  				                "s3:PutObject",
+  				                "s3:PutObjectAcl"
+  					  ],
+  					  "Resource": { "Fn::Join": ["", ["arn:aws:s3:::",
+  	                      {"Ref": "PhotoBucket"},
+  				          "/*" ]] }
+  	                }
+  	              ]
+  	            }
+  	          },
+  	          {
+  	            "PolicyName": "LambdaPolicy",
+  	            "PolicyDocument": {
+  	              "Version": "2012-10-17",
+  	              "Statement": [
+  	                {
+  			            "Effect": "Allow",
+  			            "Action": [
+  			                "lambda:InvokeFunction"
+  			            ],
+  			            "Resource": [
+  			                {"Fn::GetAtt" : [ "Metrics", "Arn" ]},
+                        {"Fn::GetAtt" : [ "SVBPRekognitionIOT", "Arn" ]}
+  			            ]
+  			        }
+  	              ]
+  	            }
+  	          },
+             	  {
+  	            "PolicyName": "LambdaRekognitionPolicy",
+  	            "PolicyDocument": {
+  	              "Version": "2012-10-17",
+  	              "Statement": [
+  	                {
+  		            "Effect": "Allow",
+  		            "Action": [
+  		                "rekognition:SearchFacesByImage"
+  		            ],
+  		            "Resource": [{"Fn::Join" : [ "", [ "arn:aws:rekognition:", {"Ref" : "AWS::Region"}, ":", {"Ref" : "AWS::AccountId"},":*"]]}]
+  		            }
+  				  ]
+  	            }
+  	          },
+             {
+              "PolicyName": "DynamoDBPolicy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+  		            "Effect": "Allow",
+  		            "Action": [
+  		                "dynamodb:GetItem",
+  		                "dynamodb:PutItem",
+  		                "dynamodb:UpdateItem"
+  		            ],
+  		            "Resource" : [{
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/svbp_processing" ] ]
+  		            },{
+  		              "Fn::Join" : [ "", [ "arn:aws:dynamodb:", {
+  		                "Ref" : "AWS::Region"
+  		              }, ":", {
+  		                "Ref" : "AWS::AccountId"
+  		              }, ":table/svbp_results" ] ]
+  		            }]
+  		        }
+                ]
+              }
+            }]
+        }
+      },
+  	"SVBPRekognitionWorker": {
+  	    "Type": "AWS::Lambda::Function",
+        	"DependsOn" : [ "SVBPRekognitionWorkerRole" ],
+  	    "Properties": {
+  	        "Handler": "lambda_function.lambda_handler",
+  	        "Runtime": "python2.7",
+  	        "Code": {
+  	          "S3Bucket" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "LambdaBucket"]},"-",{"Ref" : "AWS::Region"}]]},
+  	          "S3Key" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "S3Key"]},"/02-SVBP_rekognition_worker.zip"]]}
+  	        },
+           	"Environment" : { "Variables" :{
+              "metrics_function":{ "Ref" : "Metrics"},
+              "SVBP_rekognition_iot": {"Ref": "SVBPRekognitionIOT"},
+              "LOG_LEVEL": {"Ref": "LambdaLogLevel"}
+            }
+              },
+  	        "Description": "VFBA: Face search worker function for comparing an image against a set of Amazon Rekognition collections.",
+  	        "MemorySize": 128,
+  	        "Timeout": 300,
+           	"Role": {
+  	          "Fn::GetAtt" : [ "SVBPRekognitionWorkerRole", "Arn" ]
+          		}
+  	    }
+  	},
+    "SVBPRekognitionDDBStreamRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "LambdaPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "lambda:InvokeFunction"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "SVBPRekognitionIOT",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "DynamoDBPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:GetItem",
+                    "dynamodb:PutItem",
+                    "dynamodb:UpdateItem",
+                    "dynamodb:GetRecords",
+                    "dynamodb:GetShardIterator",
+                    "dynamodb:DescribeStream",
+                    "dynamodb:ListStreams"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:dynamodb:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":table/svbp_processing"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:dynamodb:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":table/svbp_results"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "SVBPPROCESSINGTABLE",
+                        "StreamArn"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "SVBPRekognitionDDBStream": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [
+          "SVBPRekognitionDDBStreamRole"
+      ],
+      "Properties": {
+          "Handler": "lambda_function.lambda_handler",
+          "Runtime": "python2.7",
+          "Code": {
+            "S3Bucket" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "LambdaBucket"]},"-",{"Ref" : "AWS::Region"}]]},
+            "S3Key" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "S3Key"]},"/03-SVBP_rekognition_ddb_stream.zip"]]}
+          },
+          "Description": "VFBA: Face search function to trigger Amazon Rekognition worker lambda functions in response to the face search DDB stream.",
+          "Environment": {"Variables": {
+              "SVBP_rekognition_iot": {"Ref": "SVBPRekognitionIOT"},
+              "LOG_LEVEL": {"Ref": "LambdaLogLevel"}
+            }
+          },
+          "MemorySize": 128,
+          "Timeout": 300,
+          "Role": {
+            "Fn::GetAtt" : [ "SVBPRekognitionDDBStreamRole", "Arn" ]
+            }
+      }
+    },
+    "SVBPRekognitionIOTRole": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+          "ManagedPolicyArns": [
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+          ],
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "lambda.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          },
+          "Policies": [
+            {
+              "PolicyName": "IotPublishPolicy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Action": [
+                      "iot:Publish"
+                    ],
+                    "Resource": [
+                      "*"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+    "SVBPRekognitionIOT": {
+        "Type": "AWS::Lambda::Function",
+        "Properties": {
+            "Handler": "lambda_function.lambda_handler",
+            "Runtime": "python2.7",
+            "Code": {
+              "S3Bucket" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "LambdaBucket"]},"-",{"Ref" : "AWS::Region"}]]},
+              "S3Key" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "S3Key"]},"/04-SVBP_rekognition_iot.zip"]]}
+            },
+            "Description": "VFBA: Publish search by photo status messages in IoT Topic.",
+            "Environment" : { "Variables" :{
+              "LOG_LEVEL": {"Ref": "LambdaLogLevel"}
+              }
+            },
+            "MemorySize": 128,
+            "Timeout": 3,
+            "Role": {
+              "Fn::GetAtt" : [ "SVBPRekognitionIOTRole", "Arn" ]
+              }
+        }
+    },
+  	"RVADDBStreamEventSourceMapping": {
+  	 "Type": "AWS::Lambda::EventSourceMapping",
+  	 "Properties": {
+  	   "EventSourceArn" : {"Fn::GetAtt" : [ "RVAPROCESSTABLE", "StreamArn" ]},
+  	   "FunctionName" : { "Fn::GetAtt" : ["05RVAprocessdynamodbstreamfunction", "Arn"] },
+  	   "StartingPosition" : "TRIM_HORIZON"
+  	 	}
+     },
+    "SVBPDDBStreamEventSourceMapping": {
+         "Type": "AWS::Lambda::EventSourceMapping",
+         "Properties": {
+           "EventSourceArn": {
+             "Fn::GetAtt": [
+               "SVBPPROCESSINGTABLE",
+               "StreamArn"
+             ]
+           },
+           "FunctionName": {
+             "Fn::GetAtt": [
+               "SVBPRekognitionDDBStream",
+               "Arn"
+             ]
+           },
+           "StartingPosition": "TRIM_HORIZON"
+         }
+       },
+    "VFBAMetricsRole": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+          "AssumeRolePolicyDocument": {
+            "Version" : "2012-10-17",
+            "Statement": [ {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            } ]
+          },
+          "Path": "/",
+          "Policies": [ {
+              "PolicyName": "Solution_Helper_Permissions",
+              "PolicyDocument": {
+                "Version" : "2012-10-17",
+  	            "Statement": [
+  		            {
+  		              "Effect": "Allow",
+  		              "Action": [
+  		                "logs:CreateLogGroup",
+  		                "logs:CreateLogStream",
+  		                "logs:PutLogEvents"
+  		              ],
+  			            "Resource": { "Fn::Join" : ["", ["arn:aws:logs:",{"Ref" : "AWS::Region"},":",{ "Ref" : "AWS::AccountId" }, ":log-group:/aws/lambda/*" ]]}
+  		            },{
+  		              "Effect": "Allow",
+  		              "Action": [
+  		                "s3:PutObject",
+  		                "s3:PutObjectAcl"
+  		              ],
+                    "Resource": { "Fn::Join": ["", ["arn:aws:s3:::", { "Ref" : "PhotoBucket" }, "/*" ]] }
+  		            }	]
+              }
+          } ]
+        }
+      },
+    "SolutionHelper": {
+        "Type": "AWS::Lambda::Function",
+        "Properties": {
+        	"Handler": "solution-helper.lambda_handler",
+        	"Role": { "Fn::GetAtt" : [ "VFBAMetricsRole" , "Arn" ] },
+  	      "Description": "VFBA: This function creates a CloudFormation custom lambda resource that creates custom lambda functions by finding and replacing specific values from existing lambda function code.",
+        	"Code": {
+            "S3Bucket": {
+              "Fn::Join": [
+                "",
+                [
+                  "solutions-",
+                  {
+                    "Ref": "AWS::Region"
+                  }
+                ]
+              ]
+            },
+            "S3Key": "library/solution-helper/v3/solution-helper.zip"
+          },
+          "Runtime": "python2.7",
+          "Timeout": "300"
+       }
+      },
+    "CreateUniqueID": {
+       "Type": "Custom::LoadLambda",
+       "Properties": {
+         "ServiceToken": { "Fn::GetAtt" : ["SolutionHelper", "Arn"] },
+         "Region": { "Ref": "AWS::Region" },
+         "CreateUniqueID" : "true"
+       }
+     },
+     "CreateUploadFolder": {
+       "Type": "Custom::LoadLambda",
+       "Properties": {
+         "ServiceToken": { "Fn::GetAtt" : ["SolutionHelper", "Arn"] },
+         "StoreInS3" : { "Fn::Join": ["", [
+           "[{ 'Bucket' : '",{ "Ref" : "S3PhotoBucket" },"', ",
+           "'Key' : 'upload/', ",
+           "'Body': ''",
+         "}]"
+         ]] }
+      }
+     },
+    "SendingAnonymousData": {
+      	"Type": "Custom::LoadLambda",
+          "Properties": {
+         "ServiceToken": { "Fn::GetAtt" : ["SolutionHelper", "Arn"] },
+              "SendAnonymousData": {
+                  "Fn::Join": [
+                      "",
+                      [
+                          "{ 'Solution' : '",
+                          "SO0032",
+                          "', ",
+                          "'UUID' : '",
+  			              {
+  			                "Fn::GetAtt": [
+  			                  "CreateUniqueID",
+  			                  "UUID"
+  			                ]
+  			              },
+                          "', ",
+                          "'Data': {",
+  			              "'Region': '",
+  			              {
+  			                "Ref": "AWS::Region"
+  			              },
+                          "'",
+                          "}",
+                          "}"
+                      ]
+                  ]
+              }
+          }
+      },
+	  "Metrics": {
+	    "Type": "AWS::Lambda::Function",
+	    "Properties": {
+	        "Handler": "lambda_function.lambda_handler",
+          "Role": { "Fn::GetAtt" : [ "VFBAMetricsRole" , "Arn" ] },
+	        "Runtime": "python2.7",
+	        "Code": {
+	          "S3Bucket" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "LambdaBucket"]},"-",{"Ref" : "AWS::Region"}]]},
+	          "S3Key" : { "Fn::Join" : ["", [{ "Fn::FindInMap" : [ "SourceCode", "General", "S3Key"]},"/99-metrics.zip"]]}
+	        },
+         	"Environment" : { "Variables" :
+            	{
+                "solution_id":"SO0032",
+                "SEND_ANONYMOUS_DATA":{ "Fn::FindInMap" : [ "Send", "AnonymousUsage", "Data"]},
+            	  "uuid":{"Fn::GetAtt": ["CreateUniqueID","UUID"]}
+            }
+          },
+	        "Description": "VFBA: Metrics helper function for the video-frame-based-analysis functions.",
+	        "MemorySize": 128,
+	        "Timeout": 60
+	    }
+  }
+      },
+"Outputs": {
+    "VideoSrcBucket" : {
+      "Description" : "Bucket to place videos for processing by this solution.",
+      "Value" : { "Ref" : "VideoBucket" }
+    },
+    "ImgSrcBucket" : {
+      "Description" : "Bucket to place images for peforming face searches.",
+      "Value" : { "Ref" : "PhotoBucket" }
+    },
+    "UUID" : {
+      "Description" : "Solution UUID",
+      "Value" : { "Fn::GetAtt": ["CreateUniqueID","UUID"] }
+    }
+  }
+}
