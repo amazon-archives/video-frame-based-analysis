@@ -1,3 +1,7 @@
+## Notice: Video Frame-based Analysis has been superseded by the Media Analysis Solution.
+
+In 2017, Frame-based Analysis for Your Videos was launched to help AWS customers more easily search, query, and analyze their video libraries. In 2018, AWS launched the [Media Analysis Solution](http://aws.amazon.com/answers/media-entertainment/media-analysis-solution/) a new and improved solution that uses serverless, AWS-native artificial intelligence services to automatically extract valuable metadata from media files. We encourage customers to migrate to the Media Analysis Solution for future updates and new features. 
+
 Video Frame Based Analysis
 
 To help customers process their existing image library and build collections, AWS offers Video Frame Based Analysis, a solution that combines highly available, trusted AWS Services and the open source FFmpeg. This solution allows customers to seamlessly analyze videos on any platform such as mobile, website and desktop, minimize costs, restrictions for integrating solutions, and the collaboration across many different teams within companies. This is a lightweight, ready to deploy with image recognition tasks, allowing you to focus on high value application design and development.
